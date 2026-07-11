@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小组系统信息管理</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <div class="brand">
+                <span class="logo">◈</span>
+                <div>
+                    <h1>小组系统信息管理</h1>
+                    <p class="subtitle">汇聚小组负责的所有系统 · 链接 · 相关文件</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="addSystemBtn" class="btn btn-primary">
+                    <span class="icon">＋</span> 添加系统
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="toolbar">
+            <div class="search-box">
+                <span class="search-icon">⌕</span>
+                <input type="text" id="searchInput" placeholder="搜索系统名称、描述或负责人…">
+            </div>
+            <div class="stats">
+                <span id="systemCount">0</span> 个系统
+                <span class="dot">·</span>
+                <span id="fileCount">0</span> 个文件
+            </div>
+        </section>
+
+        <section id="systemGrid" class="system-grid">
+            <!-- 系统卡片由 JS 动态渲染 -->
+        </section>
+
+        <div id="emptyState" class="empty-state">
+            <div class="empty-icon">◇</div>
+            <h2>还没有添加任何系统</h2>
+            <p>点击右上角「添加系统」开始管理小组负责的各类系统。</p>
+        </div>
+    </main>
+
+    <!-- 添加/编辑系统 弹窗 -->
+    <div id="systemModal" class="modal" hidden>
+        <div class="modal-backdrop" data-close></div>
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 id="modalTitle">添加系统</h3>
+                <button class="modal-close" data-close>✕</button>
+            </div>
+            <form id="systemForm" class="modal-body">
+                <input type="hidden" id="systemId">
+                <div class="field">
+                    <label for="sysName">系统名称 <span class="required">*</span></label>
+                    <input type="text" id="sysName" required placeholder="例如：用户中心">
+                </div>
+                <div class="field">
+                    <label for="sysOwner">负责人</label>
+                    <input type="text" id="sysOwner" placeholder="例如：张三">
+                </div>
+                <div class="field">
+                    <label for="sysUrl">页面链接</label>
+                    <input type="url" id="sysUrl" placeholder="https://example.com">
+                </div>
+                <div class="field">
+                    <label for="sysCategory">分类</label>
+                    <select id="sysCategory">
+                        <option value="业务系统">业务系统</option>
+                        <option value="支撑系统">支撑系统</option>
+                        <option value="管理系统">管理系统</option>
+                        <option value="数据系统">数据系统</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="sysDesc">系统描述</label>
+                    <textarea id="sysDesc" rows="3" placeholder="简要描述系统的用途、负责模块等"></textarea>
+                </div>
+                <div class="field">
+                    <label>相关文件</label>
+                <div class="file-drop-zone" id="fileDropZone">
+                    <input type="file" id="fileInput" multiple>
+                    <div class="drop-hint">
+                        <span class="drop-icon">⬆</span>
+                        <p>点击选择或拖拽文件到此处上传</p>
+                        <small>单个文件不超过 10MB，支持文档 / 图片 / 压缩包等</small>
+                    </div>
+                </div>
+                <ul id="fileList" class="file-list-modal"></ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close>取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 文件预览/详情弹窗 -->
+    <div id="detailModal" class="modal" hidden>
+        <div class="modal-backdrop" data-close></div>
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <h3 id="detailTitle">系统详情</h3>
+                <button class="modal-close" data-close>✕</button>
+            </div>
+            <div class="modal-body" id="detailBody"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
