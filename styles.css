@@ -177,25 +177,10 @@ body {
     border-color: var(--primary);
 }
 
-.stats {
-    font-size: 13px;
-    color: var(--text-muted);
-}
-
-.stats span:first-child,
-.stats #fileCount {
-    color: var(--primary);
-    font-weight: 600;
-}
-
-.dot {
-    margin: 0 6px;
-}
-
 /* ===== System Grid ===== */
 .system-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 18px;
 }
 
@@ -220,6 +205,25 @@ body {
     padding: 18px 18px 14px;
     border-bottom: 1px solid var(--border);
     position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.card-header-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.card-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
 }
 
 .card-badge {
@@ -245,56 +249,6 @@ body {
     color: var(--text-muted);
 }
 
-.card-desc {
-    padding: 14px 18px;
-    font-size: 13px;
-    color: var(--text-muted);
-    flex: 1;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 80px;
-    overflow: hidden;
-}
-
-.card-files {
-    padding: 14px 18px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-}
-
-.file-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 12px;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all .15s;
-    max-width: 100%;
-}
-
-.file-chip:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-}
-
-.file-chip .name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 160px;
-}
-
-.file-count-more {
-    font-size: 12px;
-    color: var(--text-muted);
-}
 
 .card-footer {
     padding: 12px 18px;

@@ -91,16 +91,11 @@
         var filtered = systems.filter(function (s) {
             if (!keyword) return true;
             var fileNames = (s.files || []).map(function (f) { return f.name; }).join(' ');
-            var haystack = (s.name + ' ' + (s.owner || '') + ' ' + (s.desc || '') +
+            var haystack = (s.name + ' ' + (s.owner || '') +
                 ' ' + (s.category || '') + ' ' + (s.url || '') + ' ' + fileNames
             ).toLowerCase();
             return haystack.indexOf(keyword) >= 0;
         });
-
-        $('#systemCount').textContent = systems.length;
-        $('#fileCount').textContent = systems.reduce(function (sum, s) {
-            return sum + (s.files ? s.files.length : 0);
-        }, 0);
 
         if (filtered.length === 0) {
             grid.innerHTML = '';
@@ -114,29 +109,26 @@
         empty.style.display = 'none';
 
         grid.innerHTML = filtered.map(function (s) {
-            var files = s.files || [];
-            var fileChips = files.slice(0, 4).map(function (f) {
-                return '<span class="file-chip" data-file-id="' + f.id + '" title="点击预览">' +
-                    fileIcon(f.name) + ' <span class="name">' + escapeHtml(f.name) + '</span></span>';
-            }).join('');
-            var more = files.length > 4 ? '<span class="file-count-more">+' + (files.length - 4) + '</span>' : '';
-
             var linkHtml = '';
+            var logoHtml = '';
             if (s.url) {
                 linkHtml = '<a class="card-link" href="' + escapeHtml(s.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(s.url) + '">' +
                     '<span>🔗 ' + escapeHtml(s.url) + '</span></a>';
+                logoHtml = '<img class="card-logo" src="/api/favicon?url=' + encodeURIComponent(s.url) +
+                    '" alt="" onerror="this.style.display=\'none\'">';
             } else {
                 linkHtml = '<span class="card-link" style="color:var(--text-muted)">暂无链接</span>';
             }
 
             return '<article class="system-card" data-id="' + s.id + '">' +
                 '<div class="card-header">' +
-                    (s.category ? '<span class="card-badge">' + escapeHtml(s.category) + '</span>' : '') +
-                    '<div class="card-title">' + escapeHtml(s.name) + '</div>' +
-                    (s.owner ? '<div class="card-owner">👤 ' + escapeHtml(s.owner) + '</div>' : '') +
+                    '<div class="card-header-main">' +
+                        (s.category ? '<span class="card-badge">' + escapeHtml(s.category) + '</span>' : '') +
+                        '<div class="card-title">' + escapeHtml(s.name) + '</div>' +
+                        (s.owner ? '<div class="card-owner">👤 ' + escapeHtml(s.owner) + '</div>' : '') +
+                    '</div>' +
+                    logoHtml +
                 '</div>' +
-                (s.desc ? '<div class="card-desc">' + escapeHtml(s.desc) + '</div>' : '') +
-                (files.length ? '<div class="card-files">' + fileChips + more + '</div>' : '') +
                 '<div class="card-footer">' +
                     linkHtml +
                 '</div>' +
@@ -162,7 +154,6 @@
             $('#sysOwner').value = system.owner || '';
             $('#sysUrl').value = system.url || '';
             $('#sysCategory').value = system.category || '业务系统';
-            $('#sysDesc').value = system.desc || '';
             // 已有文件作为待保留项
             pendingFiles = (system.files || []).map(function (f) {
                 return { id: f.id, name: f.name, size: f.size, type: f.type, addedAt: f.addedAt, existing: true };
@@ -208,9 +199,6 @@
         if (system.url) {
             html += '<div class="detail-section"><h4>页面链接</h4>' +
                 '<a class="detail-link" href="' + escapeHtml(system.url) + '" target="_blank" rel="noopener">🔗 ' + escapeHtml(system.url) + '</a></div>';
-        }
-        if (system.desc) {
-            html += '<div class="detail-section"><h4>系统描述</h4><div style="white-space:pre-wrap">' + escapeHtml(system.desc) + '</div></div>';
         }
         html += '<div class="detail-section"><h4>相关文件（' + files.length + '）</h4>';
         if (files.length === 0) {
@@ -315,8 +303,7 @@
                 name: $('#sysName').value.trim(),
                 owner: $('#sysOwner').value.trim(),
                 url: $('#sysUrl').value.trim(),
-                category: $('#sysCategory').value,
-                desc: $('#sysDesc').value.trim()
+                category: $('#sysCategory').value
             };
 
             if (!payload.name) { toast('请填写系统名称', 'error'); return; }
@@ -409,14 +396,6 @@
             var id = card.getAttribute('data-id');
             var sys = systems.filter(function (s) { return s.id === id; })[0];
             if (!sys) return;
-
-            // 文件 chip 点击 → 预览（不打开详情）
-            var chip = e.target.closest('.file-chip');
-            if (chip) {
-                var chipName = chip.querySelector('.name').textContent;
-                previewFile(chip.getAttribute('data-file-id'), chipName);
-                return;
-            }
 
             // 链接点击 → 正常跳转（不打开详情）
             if (e.target.closest('.card-link')) return;

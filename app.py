@@ -6,10 +6,13 @@
 然后访问 http://localhost:8000/
 """
 import os
+import re
 import mimetypes
 import sqlite3
+import urllib.request
+from urllib.parse import urlparse, urljoin
 from datetime import datetime
-from flask import Flask, request, jsonify, send_from_directory, abort
+from flask import Flask, request, jsonify, send_from_directory, abort, Response
 
 mimetypes.add_type('image/webp', '.webp')
 
@@ -139,7 +142,7 @@ def create_system():
          (data.get('owner') or '').strip(),
          (data.get('url') or '').strip(),
          data.get('category') or '业务系统',
-         (data.get('desc') or '').strip(),
+         '',
          now)
     )
     conn.commit()
@@ -164,7 +167,7 @@ def update_system(sys_id):
          (data.get('owner') or '').strip(),
          (data.get('url') or '').strip(),
          data.get('category') or '业务系统',
-         (data.get('desc') or '').strip(),
+         '',
          sys_id)
     )
     conn.commit()
@@ -259,6 +262,71 @@ def download_file(file_id):
         as_attachment=as_attachment,
         download_name=row['name'] if as_attachment else None,
     )
+
+
+# ============ Favicon 代理（带内存缓存） ============
+_favicon_cache = {}
+
+
+@app.get('/api/favicon')
+def favicon_proxy():
+    raw_url = request.args.get('url', '').strip()
+    if not raw_url:
+        abort(400)
+    if not raw_url.startswith('http'):
+        raw_url = 'https://' + raw_url
+    parsed = urlparse(raw_url)
+    domain = parsed.netloc
+    if not domain:
+        abort(400)
+
+    if domain in _favicon_cache:
+        cached = _favicon_cache[domain]
+        return Response(cached['data'], content_type=cached['ctype'])
+
+    icon_url = _resolve_favicon_url(parsed)
+    if not icon_url:
+        abort(404)
+
+    try:
+        req = urllib.request.Request(icon_url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = resp.read()
+            ctype = resp.headers.get('Content-Type', 'image/x-icon')
+        if len(data) > 512 * 1024:
+            abort(404)
+        _favicon_cache[domain] = {'data': data, 'ctype': ctype}
+        return Response(data, content_type=ctype)
+    except Exception:
+        abort(404)
+
+
+def _resolve_favicon_url(parsed):
+    base = parsed.scheme + '://' + parsed.netloc
+    # 1) 尝试解析 HTML 中的 <link rel="icon">
+    try:
+        req = urllib.request.Request(base, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            html = resp.read(200000).decode('utf-8', errors='ignore')
+        m = re.search(
+            r'<link[^>]*rel=["\'](?:shortcut\s+)?icon["\'][^>]*href=["\']([^"\']+)["\']',
+            html, re.IGNORECASE
+        )
+        if not m:
+            m = re.search(
+                r'<link[^>]*href=["\']([^"\']+)["\'][^>]*rel=["\'](?:shortcut\s+)?icon["\']',
+                html, re.IGNORECASE
+            )
+        if m:
+            return urljoin(base, m.group(1))
+    except Exception:
+        pass
+    # 2) fallback: /favicon.ico
+    return base + '/favicon.ico'
 
 
 # ============ 前端静态资源 ============
