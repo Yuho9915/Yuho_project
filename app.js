@@ -90,8 +90,11 @@
 
         var filtered = systems.filter(function (s) {
             if (!keyword) return true;
-            return (s.name + ' ' + (s.owner || '') + ' ' + (s.desc || '') + ' ' + (s.category || ''))
-                .toLowerCase().indexOf(keyword) >= 0;
+            var fileNames = (s.files || []).map(function (f) { return f.name; }).join(' ');
+            var haystack = (s.name + ' ' + (s.owner || '') + ' ' + (s.desc || '') +
+                ' ' + (s.category || '') + ' ' + (s.url || '') + ' ' + fileNames
+            ).toLowerCase();
+            return haystack.indexOf(keyword) >= 0;
         });
 
         $('#systemCount').textContent = systems.length;
@@ -113,7 +116,7 @@
         grid.innerHTML = filtered.map(function (s) {
             var files = s.files || [];
             var fileChips = files.slice(0, 4).map(function (f) {
-                return '<span class="file-chip" data-file-id="' + f.id + '" title="点击下载">' +
+                return '<span class="file-chip" data-file-id="' + f.id + '" title="点击预览">' +
                     fileIcon(f.name) + ' <span class="name">' + escapeHtml(f.name) + '</span></span>';
             }).join('');
             var more = files.length > 4 ? '<span class="file-count-more">+' + (files.length - 4) + '</span>' : '';
@@ -131,16 +134,11 @@
                     (s.category ? '<span class="card-badge">' + escapeHtml(s.category) + '</span>' : '') +
                     '<div class="card-title">' + escapeHtml(s.name) + '</div>' +
                     (s.owner ? '<div class="card-owner">👤 ' + escapeHtml(s.owner) + '</div>' : '') +
-                    '<div class="card-actions card-menu-btn">' +
-                        '<button class="icon-btn" data-act="edit" title="编辑">✎</button>' +
-                        '<button class="icon-btn danger" data-act="del" title="删除">🗑</button>' +
-                    '</div>' +
                 '</div>' +
                 (s.desc ? '<div class="card-desc">' + escapeHtml(s.desc) + '</div>' : '') +
                 (files.length ? '<div class="card-files">' + fileChips + more + '</div>' : '') +
                 '<div class="card-footer">' +
                     linkHtml +
-                    '<button class="icon-btn" data-act="detail" title="详情">⋯</button>' +
                 '</div>' +
             '</article>';
         }).join('');
@@ -195,6 +193,7 @@
 
     // ===== 详情弹窗 =====
     function openDetail(system) {
+        $('#detailModal').dataset.systemId = system.id;
         $('#detailTitle').textContent = system.name;
         var body = $('#detailBody');
         var files = system.files || [];
@@ -225,6 +224,7 @@
                         '<div class="name">' + escapeHtml(f.name) + '</div>' +
                         '<div class="meta">' + formatSize(f.size) + ' · ' + formatDate(f.addedAt) + '</div>' +
                     '</div>' +
+                    '<button class="btn btn-sm btn-ghost" data-pv="' + f.id + '">预览</button>' +
                     '<button class="btn btn-sm btn-ghost" data-dl="' + f.id + '">下载</button>' +
                 '</li>';
             });
@@ -236,8 +236,56 @@
         $('#detailModal').hidden = false;
     }
 
+    function previewFile(fileId, fileName) {
+        var ext = (fileName.split('.').pop() || '').toLowerCase();
+        var url = API + '/files/' + fileId;
+        var body = $('#previewBody');
+        $('#previewTitle').textContent = fileName || '文件预览';
+
+        var imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
+        var videoExts = ['mp4', 'webm', 'ogg', 'mov'];
+        var audioExts = ['mp3', 'wav', 'm4a', 'aac'];
+        var textExts = ['txt', 'md', 'json', 'csv', 'log', 'js', 'py', 'html',
+                        'css', 'xml', 'yml', 'yaml', 'ini', 'sh', 'sql'];
+
+        if (imageExts.indexOf(ext) >= 0) {
+            body.innerHTML = '<img class="preview-media preview-img" src="' + url + '" alt="' + escapeHtml(fileName) + '">';
+        } else if (videoExts.indexOf(ext) >= 0) {
+            body.innerHTML = '<video class="preview-media" src="' + url + '" controls></video>';
+        } else if (audioExts.indexOf(ext) >= 0) {
+            body.innerHTML = '<audio class="preview-media" src="' + url + '" controls></audio>';
+        } else if (ext === 'pdf') {
+            body.innerHTML = '<iframe class="preview-iframe" src="' + url + '"></iframe>';
+        } else if (textExts.indexOf(ext) >= 0) {
+            body.innerHTML = '<div class="preview-loading">加载中…</div>';
+            fetch(url).then(function (res) { return res.text(); }).then(function (text) {
+                body.innerHTML = '<pre class="preview-text">' + escapeHtml(text) + '</pre>';
+            }).catch(function () {
+                showPreviewUnsupported(body, fileId);
+            });
+        } else {
+            showPreviewUnsupported(body, fileId);
+        }
+
+        $('#previewModal').hidden = false;
+    }
+
+    function showPreviewUnsupported(body, fileId) {
+        body.innerHTML = '<div class="preview-unsupported">' +
+            '<div class="preview-unsupported-icon">📄</div>' +
+            '<p>该文件类型不支持在浏览器中预览</p>' +
+            '<button class="btn btn-primary" id="previewDlBtn">下载文件</button>' +
+        '</div>';
+        $('#previewDlBtn').addEventListener('click', function () { downloadFile(fileId); });
+    }
+
     function downloadFile(fileId) {
-        window.open(API + '/files/' + fileId, '_blank');
+        var a = document.createElement('a');
+        a.href = API + '/files/' + fileId + '?download=1';
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 
     // ===== 事件绑定 =====
@@ -250,7 +298,11 @@
         $all('[data-close]').forEach(function (el) {
             el.addEventListener('click', function () {
                 var modal = el.closest('.modal');
-                if (modal) modal.hidden = true;
+                if (!modal) return;
+                modal.hidden = true;
+                if (modal.id === 'previewModal') {
+                    $('#previewBody').innerHTML = '';
+                }
             });
         });
 
@@ -358,43 +410,71 @@
             var sys = systems.filter(function (s) { return s.id === id; })[0];
             if (!sys) return;
 
-            var actBtn = e.target.closest('[data-act]');
-            if (actBtn) {
-                var act = actBtn.getAttribute('data-act');
-                if (act === 'edit') openSystemModal(sys);
-                else if (act === 'del') {
-                    if (confirm('确定删除「' + sys.name + '」？此操作不可撤销。')) {
-                        api('/systems/' + id, { method: 'DELETE' }).then(function () {
-                            return load();
-                        }).then(function () {
-                            toast('已删除', 'success');
-                        }).catch(function (e) {
-                            toast('删除失败：' + e.message, 'error');
-                        });
-                    }
-                } else if (act === 'detail') {
-                    openDetail(sys);
-                }
+            // 文件 chip 点击 → 预览（不打开详情）
+            var chip = e.target.closest('.file-chip');
+            if (chip) {
+                var chipName = chip.querySelector('.name').textContent;
+                previewFile(chip.getAttribute('data-file-id'), chipName);
                 return;
             }
 
-            var chip = e.target.closest('.file-chip');
-            if (chip) {
-                downloadFile(chip.getAttribute('data-file-id'));
+            // 链接点击 → 正常跳转（不打开详情）
+            if (e.target.closest('.card-link')) return;
+
+            // 点击卡片其他区域 → 打开详情
+            openDetail(sys);
+        });
+
+        // 详情预览/下载
+        $('#detailBody').addEventListener('click', function (e) {
+            var pvBtn = e.target.closest('[data-pv]');
+            if (pvBtn) {
+                var pvLi = pvBtn.closest('li');
+                var pvName = pvLi.querySelector('.f-info .name').textContent;
+                previewFile(pvBtn.getAttribute('data-pv'), pvName);
+                return;
+            }
+            var dlBtn = e.target.closest('[data-dl]');
+            if (dlBtn) {
+                downloadFile(dlBtn.getAttribute('data-dl'));
             }
         });
 
-        // 详情下载
-        $('#detailBody').addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-dl]');
-            if (!btn) return;
-            downloadFile(btn.getAttribute('data-dl'));
+        // 详情弹窗编辑/删除
+        $('#detailEditBtn').addEventListener('click', function () {
+            var id = $('#detailModal').dataset.systemId;
+            var sys = systems.filter(function (s) { return s.id === id; })[0];
+            if (!sys) return;
+            closeModal('detailModal');
+            openSystemModal(sys);
+        });
+        $('#detailDelBtn').addEventListener('click', function () {
+            var id = $('#detailModal').dataset.systemId;
+            var sys = systems.filter(function (s) { return s.id === id; })[0];
+            if (!sys) return;
+            if (confirm('确定删除「' + sys.name + '」？此操作不可撤销。')) {
+                api('/systems/' + id, { method: 'DELETE' }).then(function () {
+                    return load();
+                }).then(function () {
+                    closeModal('detailModal');
+                    toast('已删除', 'success');
+                }).catch(function (e) {
+                    toast('删除失败：' + e.message, 'error');
+                });
+            }
         });
 
         // ESC 关闭弹窗
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
-                $all('.modal').forEach(function (m) { if (!m.hidden) m.hidden = true; });
+                $all('.modal').forEach(function (m) {
+                    if (!m.hidden) {
+                        m.hidden = true;
+                        if (m.id === 'previewModal') {
+                            $('#previewBody').innerHTML = '';
+                        }
+                    }
+                });
             }
         });
     }
