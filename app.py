@@ -6,9 +6,12 @@
 然后访问 http://localhost:8000/
 """
 import os
+import mimetypes
 import sqlite3
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, abort
+
+mimetypes.add_type('image/webp', '.webp')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'data.db')
@@ -104,11 +107,13 @@ def list_systems():
     if keyword:
         like = '%' + keyword + '%'
         rows = conn.execute(
-            '''SELECT * FROM systems
-               WHERE LOWER(name) LIKE ? OR LOWER(IFNULL(owner,'')) LIKE ?
-                  OR LOWER(IFNULL(desc,'')) LIKE ? OR LOWER(IFNULL(category,'')) LIKE ?
-               ORDER BY created_at DESC''',
-            (like, like, like, like)
+            '''SELECT DISTINCT s.* FROM systems s
+               LEFT JOIN files f ON f.system_id = s.id
+               WHERE LOWER(s.name) LIKE ? OR LOWER(IFNULL(s.owner,'')) LIKE ?
+                  OR LOWER(IFNULL(s.desc,'')) LIKE ? OR LOWER(IFNULL(s.category,'')) LIKE ?
+                  OR LOWER(IFNULL(s.url,'')) LIKE ? OR LOWER(IFNULL(f.name,'')) LIKE ?
+               ORDER BY s.created_at DESC''',
+            (like, like, like, like, like, like)
         ).fetchall()
     else:
         rows = conn.execute(
@@ -248,7 +253,12 @@ def download_file(file_id):
     conn.close()
     if not row:
         abort(404)
-    return send_from_directory(UPLOAD_DIR, row['stored_name'], as_attachment=True, download_name=row['name'])
+    as_attachment = request.args.get('download') == '1'
+    return send_from_directory(
+        UPLOAD_DIR, row['stored_name'],
+        as_attachment=as_attachment,
+        download_name=row['name'] if as_attachment else None,
+    )
 
 
 # ============ 前端静态资源 ============
